@@ -19,7 +19,11 @@
 #if defined(DEBUG)
 #define debug(x...) fprintf(stdout,x)
 #else
-#define debug(x...) 
+#ifdef _MSC_VER
+#define debug(x,...)
+#else
+#define debug(x...)
+#endif
 #endif
 
 

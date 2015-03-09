@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #include <memory>
@@ -17,13 +18,9 @@
 #include <stdint.h>
 
 #if defined(DEBUG)
-#define debug(x...) fprintf(stdout,x)
+#define debug(x,...) fprintf(stdout,x)
 #else
-#ifdef _MSC_VER
-#define debug(x,...)
-#else
-#define debug(x...)
-#endif
+#define debug(x,...) 
 #endif
 
 

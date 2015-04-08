@@ -253,6 +253,9 @@ ps3eye_set_parameter(ps3eye_t *eye, ps3eye_parameter param, int value)
         case PS3EYE_BLUEBALANCE:
             eye->eye->setBlueBalance(value);
             break;
+        case PS3EYE_GREENBALANCE:
+            eye->eye->setGreenBalance(value);
+            break;
         case PS3EYE_HFLIP:
             eye->eye->setFlip(value > 0, eye->eye->getFlipV());
             break;

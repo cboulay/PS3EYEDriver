@@ -46,6 +46,7 @@ typedef enum{
     PS3EYE_HUE,                 // [0, 255]
     PS3EYE_REDBALANCE,          // [0, 255]
     PS3EYE_BLUEBALANCE,         // [0, 255]
+    PS3EYE_GREENBALANCE,        // [0, 255]
     PS3EYE_HFLIP,               // [false, true]
     PS3EYE_VFLIP                // [false, true]
 } ps3eye_parameter;

@@ -105,6 +105,13 @@ ps3eye_close(ps3eye_t *eye);
 int
 ps3eye_set_parameter(ps3eye_t *eye, ps3eye_parameter param, int value);
 
+/**
+* Get a ps3eye_parameter value.
+* Returns -1 if there is an error, otherwise returns the parameter value int.
+**/
+int
+ps3eye_get_parameter(ps3eye_t *eye, ps3eye_parameter param);
+
 #ifdef __cplusplus
 };
 #endif

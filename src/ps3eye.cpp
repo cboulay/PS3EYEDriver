@@ -531,17 +531,13 @@ public:
 	    } 
 	    else
 	    {
-            switch(last_packet_type)
+            switch(last_packet_type)  // ignore warning.
             {
-                case FIRST_PACKET: // can never git here, but fixes compiler W
-                    return;
                 case DISCARD_PACKET:
                     if (packet_type == LAST_PACKET) {
                         last_packet_type = packet_type;
                         frame_data_len = 0;
                     }
-                    return;
-                case INTER_PACKET: //?
                     return;
                 case LAST_PACKET:
                     return;

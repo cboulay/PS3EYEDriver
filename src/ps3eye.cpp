@@ -76,16 +76,40 @@ private:
 class ConditionVariable
 {
 public:
+	enum EWaitResult
+	{
+		Signaled,
+		TimedOut
+	};
 
 #if PLATFORM_IS_WIN32
 	ConditionVariable(Mutex& mutex) : mutex(mutex)	{ InitializeConditionVariable(&cond);						}
 
-	void Wait()										{ SleepConditionVariableCS(&cond, &mutex.mutex, INFINITE);	}
-	void NotifyOne()								{ WakeConditionVariable(&cond);								}
+	EWaitResult Wait(int timeout_ms = 0)			{ return SleepConditionVariableCS(&cond, &mutex.mutex, timeout_ms == 0 ? INFINITE : timeout_ms) != 0 ? Signaled : TimedOut; }
+	void NotifyOne()								{ WakeConditionVariable(&cond);								}	
 #else
 	ConditionVariable(Mutex& mutex) : mutex(mutex)	{ pthread_cond_init(&cond, NULL);							}
 
-	void Wait()										{ pthread_cond_wait(&cond, &mutex.mutex);					}
+	EWaitResult Wait(int timeout_ms = 0)			
+	{ 
+		if (timeout_ms == 0)
+		{
+			pthread_cond_wait(&cond, &mutex.mutex);
+			return Signaled;
+		}
+		else
+		{
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+
+			struct timespec ts;
+			ts.tv_sec = tv.tv_sec;
+			ts.tv_nsec = tv.tv_usec * 1000;
+			ts.tv_nsec += timeout_ms * 1000000;
+
+			return pthread_cond_timedwait(&cond, &mutex.mutex, &ts) == 0 ? Signaled : TimedOut;
+		}
+	}
 	void NotifyOne()								{ pthread_cond_signal(&cond);								}
 #endif
 
@@ -684,7 +708,12 @@ public:
 		// otherwise the producer could overwrite the frame the consumer is currently reading (in case of a slow consumer)
 		while (available >= num_frames-1)
 		{
-			overflow_condition.Wait();
+			// Wait a maximum of 1 second; if nobody has consumed a frame in that time, assume the consumer is busy with something else and overwrite the last frame
+			ConditionVariable::EWaitResult wait_res = overflow_condition.Wait(1000);
+			if (wait_res == ConditionVariable::TimedOut)
+			{
+				return frame_buffer + head * frame_size;
+			}
 		}
 
 		// Note: we don't need to copy any data to the buffer since the URB packets are directly written to the frame buffer.

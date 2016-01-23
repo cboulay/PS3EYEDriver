@@ -34,7 +34,7 @@ public:
 	static const uint16_t VENDOR_ID;
 	static const uint16_t PRODUCT_ID;
 
-	PS3EYECam(libusb_device *device);
+	PS3EYECam(libusb_context* context, libusb_device *device);
 	~PS3EYECam();
 
 	bool init(uint32_t width = 0, uint32_t height = 0, uint8_t desiredFrameRate = 30);
@@ -144,17 +144,19 @@ public:
     
 
     bool isStreaming() const { return is_streaming; }
-	bool isNewFrame() const;
-	const uint8_t* getLastFramePointer();
+	
+	// Get a frame from the camera. Notes:
+	// - If there is no frame available, this function will block until one is
+	// - The returned frame is a malloc'd copy; you must free() it yourself when done with it
+	uint8_t* getFrame();
 
 	uint32_t getWidth() const { return frame_width; }
 	uint32_t getHeight() const { return frame_height; }
 	uint8_t getFrameRate() const { return frame_rate; }
 	uint32_t getRowBytes() const { return frame_stride; }
 
-	//
-	static const std::vector<PS3EYERef>& getDevices( bool forceRefresh = false );
-	static bool updateDevices();
+	static uint32_t getDeviceCount(bool forceRefresh = false);
+	static PS3EYERef createDevice(uint32_t index);
 
 private:
 	PS3EYECam(const PS3EYECam&);
@@ -192,17 +194,13 @@ private:
 
 	std::shared_ptr<class USBMgr> mgrPtr;
 
-	static bool devicesEnumerated;
-    static std::vector<PS3EYERef> devices;
-
 	uint32_t frame_width;
 	uint32_t frame_height;
 	uint32_t frame_stride;
 	uint8_t frame_rate;
 
-	double last_qued_frame_time;
-
 	//usb stuff
+	libusb_context *device_context;
 	libusb_device *device_;
 	libusb_device_handle *handle_;
 	uint8_t *usb_buf;

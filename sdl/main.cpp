@@ -4,7 +4,12 @@
  * Joseph Howse <josephhowse@nummist.com>; 2014-12-26
  **/
 
+#if defined WIN32 || defined _WIN32 || defined WINCE
 #include <SDL2/SDL.h>
+#else
+#include <SDL.h>
+#endif
+
 #include "ps3eye.h"
 
 
@@ -72,25 +77,27 @@ struct ps3eye_context {
     ps3eye_context(int width, int height, int fps)
         : buffers(3 /* number of buffers */)
         , eye(0)
-        , devices(ps3eye::PS3EYECam::getDevices())
+    //, devices(ps3eye::PS3EYECam::getDevices())
         , running(true)
         , last_ticks(0)
         , last_frames(0)
     {
-        if (hasDevices()) {
-            eye = devices[0];
+        if (ps3eye::PS3EYECam::getDeviceCount() > 0) {
+            eye = ps3eye::PS3EYECam::createDevice(0);
             eye->init(width, height, fps);
         }
     }
 
+    /*
     bool
     hasDevices()
     {
         return (devices.size() > 0);
     }
+     */
 
     yuv422_buffers_t buffers;
-    std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
+    //std::vector<ps3eye::PS3EYECam::PS3EYERef> devices;
     ps3eye::PS3EYECam::PS3EYERef eye;
 
     bool running;
@@ -109,14 +116,16 @@ ps3eye_cam_thread(void *user_data)
            ctx->eye->getHeight(), ctx->eye->getFrameRate());
 
     while (ctx->running) {
-        ps3eye::PS3EYECam::updateDevices();
+        //ps3eye::PS3EYECam::updateDevices();
 
-        if (ctx->eye->isNewFrame()) {
-            ctx->buffers.next()->update(ctx->eye->getLastFramePointer(),
-                    ctx->eye->getRowBytes(), ctx->eye->getWidth(),
-                    ctx->eye->getHeight());
-            ctx->last_frames++;
-        }
+        //if (ctx->eye->isNewFrame()) {
+        uint8_t *new_pixels = ctx->eye->getFrame();
+        ctx->buffers.next()->update(new_pixels,
+                ctx->eye->getRowBytes(), ctx->eye->getWidth(),
+                ctx->eye->getHeight());
+        ctx->last_frames++;
+        free(new_pixels);
+        //}
 
         Uint32 now_ticks = SDL_GetTicks();
         if (now_ticks - ctx->last_ticks > 1000) {
@@ -141,11 +150,13 @@ print_renderer_info(SDL_Renderer *renderer)
 int
 main(int argc, char *argv[])
 {
-    ps3eye_context ctx(320, 240, 187);
+    ps3eye_context ctx(640, 480, 60);
+    /*
     if (!ctx.hasDevices()) {
         printf("No PS3 Eye camera connected\n");
         return EXIT_FAILURE;
     }
+     */
     ctx.eye->setFlip(true); /* mirrored left-right */
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {

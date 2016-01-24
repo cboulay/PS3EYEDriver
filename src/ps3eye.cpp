@@ -677,12 +677,11 @@ class FrameQueue
 public:
 	FrameQueue(uint32_t frame_size, uint32_t num_frames) :
 		frame_size			(frame_size),
-		num_frames			(num_frames),
+		num_frames			(std::max(num_frames, 2u)),
 		frame_buffer		((uint8_t*)malloc(frame_size * num_frames)),
 		head				(0),
 		tail				(0),
 		available			(0),
-		overflow_condition	(mutex),
 		empty_condition		(mutex)
 	{
 	}
@@ -703,17 +702,15 @@ public:
 
 		Mutex::AutoLock lock(mutex);
 
-		// If the buffer is full, wait until there is room.
-		// Note that because the the producer is writing directly to the ring buffer, we can only ever be num_frames-1 ahead of the consumer, 
+		// Unlike traditional producer/consumer, we don't block the producer if the buffer is full (ie. the consumer is not reading data fast enough).
+		// Instead, if the buffer is full, we simply return the current frame pointer, causing the producer to overwrite the previous frame.
+		// This allows the service to degrade gracefully: if the consumer is not fast enough (< Camera FPS), it will miss frames, but if it is fast enough (>= Camera FPS), it will see everything.
+		//
+		// Note that because the the producer is writing directly to the ring buffer, we can only ever be a maximum of num_frames-1 ahead of the consumer, 
 		// otherwise the producer could overwrite the frame the consumer is currently reading (in case of a slow consumer)
-		while (available >= num_frames-1)
+		if (available >= num_frames - 1)
 		{
-			// Wait a maximum of 1 second; if nobody has consumed a frame in that time, assume the consumer is busy with something else and overwrite the last frame
-			ConditionVariable::EWaitResult wait_res = overflow_condition.Wait(1000);
-			if (wait_res == ConditionVariable::TimedOut)
-			{
-				return frame_buffer + head * frame_size;
-			}
+			return frame_buffer + head * frame_size;
 		}
 
 		// Note: we don't need to copy any data to the buffer since the URB packets are directly written to the frame buffer.
@@ -750,9 +747,6 @@ public:
 		tail = (tail + 1) % num_frames;
 		available--;
 
-		// Signal producer that there's room in the queue
-		overflow_condition.NotifyOne();
-
 		return new_frame;
 	}
 
@@ -766,7 +760,6 @@ private:
 	uint32_t			available;
 
 	Mutex				mutex;
-	ConditionVariable	overflow_condition;
 	ConditionVariable	empty_condition;
 };
 
@@ -799,11 +792,11 @@ public:
 		}
 	}
 
-	bool start_transfers(libusb_device_handle *handle, uint32_t curr_frame_size)
+	bool start_transfers(libusb_device_handle *handle, uint32_t curr_frame_size, uint32_t frame_queue_size)
 	{
 		// Initialize the frame queue
         frame_size = curr_frame_size;
-		frame_queue = new FrameQueue(frame_size, 16);
+		frame_queue = new FrameQueue(frame_size, frame_queue_size);
 
 		// Initialize the current frame pointer to the start of the buffer; it will be updated as frames are completed and pushed onto the frame queue
 		cur_frame_start = frame_queue->GetFrameBufferStart();
@@ -1112,7 +1105,7 @@ void PS3EYECam::release()
 	if(usb_buf) free(usb_buf);
 }
 
-bool PS3EYECam::init(uint32_t width, uint32_t height, uint8_t desiredFrameRate)
+bool PS3EYECam::init(uint32_t width, uint32_t height, uint8_t desiredFrameRate, uint32_t frame_buffer_count)
 {
 	uint16_t sensor_id;
 
@@ -1140,6 +1133,8 @@ bool PS3EYECam::init(uint32_t width, uint32_t height, uint8_t desiredFrameRate)
 	}
 	frame_rate = ov534_set_frame_rate(desiredFrameRate, true);
     frame_stride = frame_width * 2;
+	frame_queue_size = frame_buffer_count;
+
 	//
 
 	/* reset bridge */
@@ -1211,7 +1206,7 @@ void PS3EYECam::start()
 	ov534_reg_write(0xe0, 0x00); // start stream
 
 	// init and start urb
-	urb->start_transfers(handle_, frame_stride*frame_height);
+	urb->start_transfers(handle_, frame_stride*frame_height, frame_queue_size);
     is_streaming = true;
 }
 

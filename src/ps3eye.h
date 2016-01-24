@@ -37,7 +37,7 @@ public:
 	PS3EYECam(libusb_context* context, libusb_device *device);
 	~PS3EYECam();
 
-	bool init(uint32_t width = 0, uint32_t height = 0, uint8_t desiredFrameRate = 30);
+	bool init(uint32_t width = 0, uint32_t height = 0, uint8_t desiredFrameRate = 30, uint32_t frame_buffer_count = 2);
 	void start();
 	void stop();
 
@@ -198,6 +198,7 @@ private:
 	uint32_t frame_height;
 	uint32_t frame_stride;
 	uint8_t frame_rate;
+	uint32_t frame_queue_size;
 
 	//usb stuff
 	libusb_context *device_context;

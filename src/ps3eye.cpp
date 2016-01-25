@@ -126,8 +126,8 @@ private:
 class Semaphore
 {
 public:
-	Semaphore() :
-		sema(NULL)
+    Semaphore() :
+        sema(NULL)
 	{
 	}
 
@@ -143,18 +143,18 @@ public:
 	void Acquire()								{ WaitForSingleObject(sema, INFINITE);							}
 	void Release()								{ ReleaseSemaphore(sema, 1, NULL);								}
 #else
-	void Init(int init_count, int max_count)	{ sem_init(&sema, 0, init_count);								}
-	void Destroy()								{ sem_destroy(&sema);											}
+	void Init(int init_count, int max_count)    { sema = sem_open("/semaphore", O_CREAT | O_EXCL, 0644, init_count);    }
+	void Destroy()								{ sem_close(sema);                                             }
 
-	void Acquire()								{ sem_wait(&sema);												}
-	void Release()								{ sem_post(&sema);												}
+	void Acquire()								{ sem_wait(sema);												}
+	void Release()								{ sem_post(sema);												}
 #endif
 
 private:
 #if PLATFORM_IS_WIN32
 	HANDLE	sema;
 #else
-	sem_t	sema;
+	sem_t	*sema;
 #endif
 };
 

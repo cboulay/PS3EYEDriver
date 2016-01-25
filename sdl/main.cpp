@@ -4,11 +4,7 @@
  * Joseph Howse <josephhowse@nummist.com>; 2014-12-26
  **/
 
-#if defined WIN32 || defined _WIN32 || defined WINCE
-#include <SDL2/SDL.h>
-#else
 #include <SDL.h>
-#endif
 
 #include "ps3eye.h"
 

@@ -145,6 +145,8 @@ public:
 
     bool isStreaming() const { return is_streaming; }
 	
+    bool getUSBPortPath(char *out_identifier, size_t max_identifier_length) const;
+    
 	// Get a frame from the camera. Notes:
 	// - If there is no frame available, this function will block until one is
 	// - The returned frame is a malloc'd copy; you must free() it yourself when done with it

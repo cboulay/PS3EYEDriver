@@ -806,6 +806,7 @@ PS3EYECam::PS3EYECam(libusb_device *device)
 
 	usb_buf = NULL;
 	handle_ = NULL;
+    claimed_interface_ = false;
 
 	is_streaming = false;
 
@@ -1002,7 +1003,12 @@ bool PS3EYECam::open_usb()
 	//libusb_set_configuration(handle_, 0);
 
 	res = libusb_claim_interface(handle_, 0);
-	if(res != 0) {
+    if (res == 0)
+    {
+        claimed_interface_ = true;
+    }
+    else
+    {
 		debug("device claim interface error: %d\n", res);
 		return false;
 	}
@@ -1012,13 +1018,27 @@ bool PS3EYECam::open_usb()
 
 void PS3EYECam::close_usb()
 {
-	debug("closing device\n");
-	libusb_release_interface(handle_, 0);
-	libusb_close(handle_);
-	libusb_unref_device(device_);
-	handle_ = NULL;
-	device_ = NULL;
-	debug("device closed\n");
+    debug("closing device\n");
+
+    if (claimed_interface_)
+    {
+        libusb_release_interface(handle_, 0);
+        claimed_interface_ = false;
+    }
+
+    if (handle_ != NULL)
+    {
+        libusb_close(handle_);
+        handle_ = NULL;
+    }
+
+    if (device_ != NULL)
+    {
+        libusb_unref_device(device_);
+        device_ = NULL;
+    }
+
+    debug("device closed\n");
 }
 
 /* Two bits control LED: 0x21 bit 7 and 0x23 bit 7.

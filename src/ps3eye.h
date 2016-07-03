@@ -210,6 +210,7 @@ private:
 	//usb stuff
 	libusb_device *device_;
 	libusb_device_handle *handle_;
+    bool claimed_interface_;
 	uint8_t *usb_buf;
 
 	std::shared_ptr<class URBDesc> urb;

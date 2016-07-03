@@ -144,6 +144,7 @@ public:
     
 
     bool isStreaming() const { return is_streaming; }
+    bool isInitialized() const { return device_ != NULL && handle_ != NULL && claimed_interface_ && usb_buf != NULL; }
 	
     bool getUSBPortPath(char *out_identifier, size_t max_identifier_length) const;
     

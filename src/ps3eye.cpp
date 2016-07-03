@@ -66,8 +66,8 @@
 
 namespace ps3eye {
 
-#define TRANSFER_SIZE		16384
-#define NUM_TRANSFERS		8
+#define TRANSFER_SIZE		65536
+#define NUM_TRANSFERS		5
 
 #define OV534_REG_ADDRESS	0xf1	/* sensor address */
 #define OV534_REG_SUBADDR	0xf2
@@ -80,10 +80,6 @@ namespace ps3eye {
 #define OV534_OP_WRITE_2	0x33
 #define OV534_OP_READ_2		0xf9
 
-#define CTRL_TIMEOUT 500
-#define VGA	 0
-#define QVGA 1
-
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(_A) (sizeof(_A) / sizeof((_A)[0]))
 #endif
@@ -93,192 +89,116 @@ static const uint8_t ov534_reg_initdata[][2] = {
 
 	{ OV534_REG_ADDRESS, 0x42 }, /* select OV772x sensor */
 
-	{ 0xc2, 0x0c },
-	{ 0x88, 0xf8 },
-	{ 0xc3, 0x69 },
-	{ 0x89, 0xff },
-	{ 0x76, 0x03 },
 	{ 0x92, 0x01 },
 	{ 0x93, 0x18 },
 	{ 0x94, 0x10 },
 	{ 0x95, 0x10 },
-	{ 0xe2, 0x00 },
-	{ 0xe7, 0x3e },
-
+	{ 0xE2, 0x00 },
+	{ 0xE7, 0x3E },
+	
 	{ 0x96, 0x00 },
-
 	{ 0x97, 0x20 },
 	{ 0x97, 0x20 },
 	{ 0x97, 0x20 },
-	{ 0x97, 0x0a },
-	{ 0x97, 0x3f },
-	{ 0x97, 0x4a },
+	{ 0x97, 0x0A },
+	{ 0x97, 0x3F },
+	{ 0x97, 0x4A },
 	{ 0x97, 0x20 },
 	{ 0x97, 0x15 },
-	{ 0x97, 0x0b },
+	{ 0x97, 0x0B },
 
-	{ 0x8e, 0x40 },
-	{ 0x1f, 0x81 },
+	{ 0x8E, 0x40 },
+	{ 0x1F, 0x81 },
+	{ 0xC0, 0x50 },
+	{ 0xC1, 0x3C },
+	{ 0xC2, 0x01 },
+	{ 0xC3, 0x01 },
+	{ 0x50, 0x89 },
+	{ 0x88, 0x08 },
+	{ 0x8D, 0x00 },
+	{ 0x8E, 0x00 },
+
+	{ 0x1C, 0x00 },		/* video data start (V_FMT) */
+
+	{ 0x1D, 0x00 },		/* RAW8 mode */
+	{ 0x1D, 0x02 },		/* payload size 0x0200 * 4 = 2048 bytes */
+	{ 0x1D, 0x00 },		/* payload size */
+
+	{ 0x1D, 0x01 },		/* frame size = 0x012C00 * 4 = 307200 bytes (640 * 480 @ 8bpp) */
+	{ 0x1D, 0x2C },		/* frame size */
+	{ 0x1D, 0x00 },		/* frame size */
+
+	{ 0x1C, 0x0A },		/* video data start (V_CNTL0) */
+	{ 0x1D, 0x08 },		/* turn on UVC header */
+	{ 0x1D, 0x0E },
+
 	{ 0x34, 0x05 },
-	{ 0xe3, 0x04 },
-	{ 0x88, 0x00 },
+	{ 0xE3, 0x04 },
 	{ 0x89, 0x00 },
 	{ 0x76, 0x00 },
-	{ 0xe7, 0x2e },
-	{ 0x31, 0xf9 },
+	{ 0xE7, 0x2E },
+	{ 0x31, 0xF9 },
 	{ 0x25, 0x42 },
-	{ 0x21, 0xf0 },
-
-	{ 0x1c, 0x00 },
-	{ 0x1d, 0x40 },
-	{ 0x1d, 0x02 }, /* payload size 0x0200 * 4 = 2048 bytes */
-	{ 0x1d, 0x00 }, /* payload size */
-
-// -------------
-
-//	{ 0x1d, 0x01 },/* frame size */		// kwasy
-//	{ 0x1d, 0x4b },/* frame size */
-//	{ 0x1d, 0x00 }, /* frame size */
-
-
-//	{ 0x1d, 0x02 },/* frame size */		// macam
-//	{ 0x1d, 0x57 },/* frame size */
-//	{ 0x1d, 0xff }, /* frame size */
-
-	{ 0x1d, 0x02 },/* frame size */		// jfrancois / linuxtv.org/hg/v4l-dvb
-	{ 0x1d, 0x58 },/* frame size */
-	{ 0x1d, 0x00 }, /* frame size */
-
-// ---------
-
-	{ 0x1c, 0x0a },
-	{ 0x1d, 0x08 }, /* turn on UVC header */
-	{ 0x1d, 0x0e }, /* .. */
-
-	{ 0x8d, 0x1c },
-	{ 0x8e, 0x80 },
-	{ 0xe5, 0x04 },
-
-// ----------------
-//	{ 0xc0, 0x28 },//	kwasy / macam
-//	{ 0xc1, 0x1e },//
-
-	{ 0xc0, 0x50 },		// jfrancois
-	{ 0xc1, 0x3c },
-	{ 0xc2, 0x0c }, 
-
-
-	
+	{ 0x21, 0xF0 },
+	{ 0xE5, 0x04 }	
 };
 
 static const uint8_t ov772x_reg_initdata[][2] = {
 
-	{0x12, 0x80 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
-	{0x11, 0x01 },
+	{ 0x12, 0x80 },		/* reset */
+	{ 0x3D, 0x00 },
 
-	{0x3d, 0x03 },
-	{0x17, 0x26 },
-	{0x18, 0xa0 },
-	{0x19, 0x07 },
-	{0x1a, 0xf0 },
-	{0x32, 0x00 },
-	{0x29, 0xa0 },
-	{0x2c, 0xf0 },
-	{0x65, 0x20 },
-	{0x11, 0x01 },
-	{0x42, 0x7f },
-	{0x63, 0xAA }, 	// AWB
-	{0x64, 0xff },
-	{0x66, 0x00 },
-	{0x13, 0xf0 },	// COM8  - jfrancois 0xf0	orig x0f7
-	{0x0d, 0x41 },
-	{0x0f, 0xc5 },
-	{0x14, 0x11 },
+	{ 0x12, 0x01 },		/* Processed Bayer RAW (8bit) */
 
-	{0x22, 0x7f },
-	{0x23, 0x03 },
-	{0x24, 0x40 },
-	{0x25, 0x30 },
-	{0x26, 0xa1 },
-	{0x2a, 0x00 },
-	{0x2b, 0x00 }, 
-	{0x6b, 0xaa },
-	{0x13, 0xff },	// COM8 - jfrancois 0xff orig 0xf7
+	{ 0x11, 0x01 },
+	{ 0x14, 0x40 },
+	{ 0x15, 0x00 },
+	{ 0x63, 0xAA },		// AWB	
+	{ 0x64, 0x87 },
+	{ 0x66, 0x00 },
+	{ 0x67, 0x02 },
+	{ 0x17, 0x26 },
+	{ 0x18, 0xA0 },
+	{ 0x19, 0x07 },
+	{ 0x1A, 0xF0 },
+	{ 0x29, 0xA0 },
+	{ 0x2A, 0x00 },
+	{ 0x2C, 0xF0 },
+	{ 0x20, 0x10 },
+	{ 0x4E, 0x0F },
+	{ 0x3E, 0xF3 },
+	{ 0x0D, 0x41 },
+	{ 0x32, 0x00 },
+	{ 0x13, 0xF0 },		// COM8  - jfrancois 0xf0	orig x0f7
+	{ 0x22, 0x7F },
+	{ 0x23, 0x03 },
+	{ 0x24, 0x40 },
+	{ 0x25, 0x30 },
+	{ 0x26, 0xA1 },
+	{ 0x2A, 0x00 },
+	{ 0x2B, 0x00 },
+	{ 0x13, 0xF7 },
+	{ 0x0C, 0xC0 },
 
-	{0x90, 0x05 },
-	{0x91, 0x01 },
-	{0x92, 0x03 },
-	{0x93, 0x00 },
-	{0x94, 0x60 },
-	{0x95, 0x3c },
-	{0x96, 0x24 },
-	{0x97, 0x1e },
-	{0x98, 0x62 },
-	{0x99, 0x80 },
-	{0x9a, 0x1e },
-	{0x9b, 0x08 },
-	{0x9c, 0x20 },
-	{0x9e, 0x81 },
+	{ 0x11, 0x00 },
+	{ 0x0D, 0x41 },
 
-	{0xa6, 0x04 },
-	{0x7e, 0x0c },
-	{0x7f, 0x16 },
-	{0x80, 0x2a },
-	{0x81, 0x4e },
-    {0x82, 0x61 },
-	{0x83, 0x6f },
-	{0x84, 0x7b },
-	{0x85, 0x86 },
-	{0x86, 0x8e },
-	{0x87, 0x97 },
-	{0x88, 0xa4 },
-	{0x89, 0xaf },
-	{0x8a, 0xc5 },
-	{0x8b, 0xd7 },
-	{0x8c, 0xe8 },
-	{0x8d, 0x20 },
-
-	{0x0c, 0x90 },
-
-	{0x2b, 0x00 }, 
-	{0x22, 0x7f },
-	{0x23, 0x03 },
-	{0x11, 0x01 },
-	{0x0c, 0xd0 },
-	{0x64, 0xff },
-	{0x0d, 0x41 },
-
-	{0x14, 0x41 },
-	{0x0e, 0xcd },
-	{0xac, 0xbf },
-	{0x8e, 0x00 },	// De-noise threshold - jfrancois 0x00 - orig 0x04
-	{0x0c, 0xd0 }
-
+ 	{ 0x8E, 0x00 },		// De-noise threshold - jfrancois 0x00 - orig 0x04
 };
 
 static const uint8_t bridge_start_vga[][2] = {
 	{0x1c, 0x00},
-	{0x1d, 0x40},
-	{0x1d, 0x02},
 	{0x1d, 0x00},
 	{0x1d, 0x02},
-	{0x1d, 0x58},
 	{0x1d, 0x00},
+	{0x1d, 0x01},	/* frame size = 0x012C00 * 4 = 307200 bytes (640 * 480 @ 8bpp) */
+	{0x1d, 0x2C},	/* frame size */
+	{0x1d, 0x00},	/* frame size */
 	{0xc0, 0x50},
 	{0xc1, 0x3c},
 };
 static const uint8_t sensor_start_vga[][2] = {
-	{0x12, 0x00},
+	{0x12, 0x01},
 	{0x17, 0x26},
 	{0x18, 0xa0},
 	{0x19, 0x07},
@@ -289,17 +209,17 @@ static const uint8_t sensor_start_vga[][2] = {
 };
 static const uint8_t bridge_start_qvga[][2] = {
 	{0x1c, 0x00},
-	{0x1d, 0x40},
+	{0x1d, 0x00},
 	{0x1d, 0x02},
-	{0x1d, 0x00},
-	{0x1d, 0x01},
-	{0x1d, 0x4b},
-	{0x1d, 0x00},
+	{0x1d, 0x00},	
+	{0x1d, 0x00},	/* frame size = 0x004B00 * 4 = 76800 bytes (320 * 240 @ 8bpp) */
+	{0x1d, 0x4b},	/* frame size */
+	{0x1d, 0x00},	/* frame size */
 	{0xc0, 0x28},
 	{0xc1, 0x1e},
 };
 static const uint8_t sensor_start_qvga[][2] = {
-	{0x12, 0x40},
+	{0x12, 0x41},
 	{0x17, 0x3f},
 	{0x18, 0x50},
 	{0x19, 0x03},
@@ -379,31 +299,14 @@ class USBMgr
 	void cameraStarted();
 	void cameraStopped();
 
-    int usbControlTransfer(
-        libusb_device_handle *dev_handle,
-        uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex,
-        unsigned char *data, uint16_t wLength, unsigned int timeout);
-
     static std::shared_ptr<USBMgr>  sInstance;
     static int                      sTotalDevices;
 
  private:   
     libusb_context*					usb_context;
 	std::thread						update_thread;
-    bool            				thread_started;
 	std::atomic_bool				exit_signaled;
 	std::atomic_int					active_camera_count;
-
-    enum ControlTransferStatus {
-        CONTROL_TRANSFER_EMPTY,
-        CONTROL_TRANSFER_PENDING_SUBMIT,
-        CONTROL_TRANSFER_PENDING_RESPONSE,
-        CONTROL_TRANSFER_COMPLETE
-    };
-    struct libusb_transfer*         control_transfer;
-    std::mutex                      control_transfer_mutex;
-    std::condition_variable         transfer_complete_condition;
-    std::atomic_int                 control_transfer_status; // ControlTransferStatus
 
     USBMgr(const USBMgr&);
     void operator=(const USBMgr&);
@@ -411,20 +314,14 @@ class USBMgr
 	void startTransferThread();
 	void stopTransferThread();
 	void transferThreadFunc();
-
-    void usbControlTransferThreadUpdate();
-    static void LIBUSB_CALL sync_transfer_cb(struct libusb_transfer *transfer);
 };
 
 std::shared_ptr<USBMgr> USBMgr::sInstance;
 int                     USBMgr::sTotalDevices = 0;
 
 USBMgr::USBMgr() :
-    thread_started(false),
 	exit_signaled({ false }),
-	active_camera_count({ 0 }),
-    control_transfer(nullptr),
-    control_transfer_status({ CONTROL_TRANSFER_EMPTY })
+	active_camera_count({ 0 })
 {
     libusb_init(&usb_context);
     libusb_set_debug(usb_context, 1);
@@ -459,15 +356,12 @@ void USBMgr::cameraStopped()
 void USBMgr::startTransferThread()
 {
 	update_thread = std::thread(&USBMgr::transferThreadFunc, this);
-    thread_started = true;
 }
 
 void USBMgr::stopTransferThread()
 {
 	exit_signaled = true;
 	update_thread.join();
-
-    thread_started = false;
 	// Reset the exit signal flag.
 	// If we don't and we call startTransferThread() again, transferThreadFunc will exit immediately.
 	exit_signaled = false;    
@@ -483,8 +377,6 @@ void USBMgr::transferThreadFunc()
 
 	while (!exit_signaled)
 	{
-        usbControlTransferThreadUpdate();
-
 		libusb_handle_events_timeout_completed(usb_context, &tv, NULL);
 	}
 }
@@ -524,139 +416,6 @@ int USBMgr::listDevices( std::vector<PS3EYECam::PS3EYERef>& list )
 	libusb_free_device_list(devs, 1);
 
     return cnt;
-}
-
-int USBMgr::usbControlTransfer(
-    libusb_device_handle *dev_handle,
-    uint8_t bmRequestType, uint8_t bRequest, uint16_t wValue, uint16_t wIndex,
-    unsigned char *data, uint16_t wLength, unsigned int timeout)
-{
-    int r;
-
-    if (thread_started)
-    {
-        struct libusb_transfer *transfer;
-        unsigned char *buffer;
-
-        transfer = libusb_alloc_transfer(0);
-        if (!transfer)
-            return LIBUSB_ERROR_NO_MEM;
-
-        buffer = (unsigned char*)malloc(LIBUSB_CONTROL_SETUP_SIZE + wLength);
-        if (!buffer) {
-            libusb_free_transfer(transfer);
-            return LIBUSB_ERROR_NO_MEM;
-        }
-
-        libusb_fill_control_setup(buffer, bmRequestType, bRequest, wValue, wIndex,
-            wLength);
-        if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT)
-            memcpy(buffer + LIBUSB_CONTROL_SETUP_SIZE, data, wLength);
-
-        libusb_fill_control_transfer(transfer, dev_handle, buffer, sync_transfer_cb, this, timeout);
-        transfer->flags = LIBUSB_TRANSFER_FREE_BUFFER;
-
-        // Submit to the transfer thread and block until it's done with it
-        {
-            std::unique_lock<std::mutex> lock(control_transfer_mutex);
-
-            // Enqueue the transfer request
-            control_transfer = transfer;
-            control_transfer_status = CONTROL_TRANSFER_PENDING_SUBMIT;
-
-            // Wait for the transfer to complete
-            transfer_complete_condition.wait(lock, [this]() { return control_transfer_status == CONTROL_TRANSFER_COMPLETE; });
-
-            // Clear the transfer
-            control_transfer = nullptr;
-            control_transfer_status = CONTROL_TRANSFER_EMPTY;
-        }
-
-        if ((bmRequestType & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN)
-        {
-            memcpy(data, libusb_control_transfer_get_data(transfer), transfer->actual_length);
-        }
-
-        switch (transfer->status) {
-        case LIBUSB_TRANSFER_COMPLETED:
-            r = transfer->actual_length;
-            break;
-        case LIBUSB_TRANSFER_TIMED_OUT:
-            r = LIBUSB_ERROR_TIMEOUT;
-            break;
-        case LIBUSB_TRANSFER_STALL:
-            r = LIBUSB_ERROR_PIPE;
-            break;
-        case LIBUSB_TRANSFER_NO_DEVICE:
-            r = LIBUSB_ERROR_NO_DEVICE;
-            break;
-        case LIBUSB_TRANSFER_OVERFLOW:
-            r = LIBUSB_ERROR_OVERFLOW;
-            break;
-        case LIBUSB_TRANSFER_ERROR:
-        case LIBUSB_TRANSFER_CANCELLED:
-            r = LIBUSB_ERROR_IO;
-            break;
-        default:
-            r = LIBUSB_ERROR_OTHER;
-        }
-
-        libusb_free_transfer(transfer);
-    }
-    else
-    {
-        // If the transfer thread isn't running, then fall back to the synchronous libusb api
-        r= libusb_control_transfer(dev_handle, bmRequestType, bRequest, wValue, wIndex, data, wLength, timeout);
-    }
-
-    return r;
-}
-
-void USBMgr::usbControlTransferThreadUpdate()
-{
-    // Don't take the lock unless we really need to.
-    // (control_transfer_status is an atomic int)
-    // If it's status changes from non-empty to empty
-    // between the guard clause and activating the lock, no biggie.
-    if (control_transfer_status != CONTROL_TRANSFER_EMPTY)
-    {
-        std::lock_guard<std::mutex> lock(control_transfer_mutex);
-
-        switch (control_transfer_status)
-        {
-        case CONTROL_TRANSFER_EMPTY:
-            assert(control_transfer == nullptr);
-            break;
-        case CONTROL_TRANSFER_PENDING_SUBMIT:
-            assert(control_transfer != nullptr);
-            if (libusb_submit_transfer(control_transfer) == 0)
-            {
-                control_transfer_status = CONTROL_TRANSFER_PENDING_RESPONSE;
-            }
-            else
-            {
-                control_transfer->status = LIBUSB_TRANSFER_ERROR;
-                control_transfer_status = CONTROL_TRANSFER_COMPLETE;
-            }
-            break;
-        case CONTROL_TRANSFER_PENDING_RESPONSE:
-            assert(control_transfer != nullptr);
-            break;
-        case CONTROL_TRANSFER_COMPLETE:
-            // Tell the main thread that it's time to wake back up again
-            transfer_complete_condition.notify_one();
-            break;
-        }
-    }
-}
-
-void LIBUSB_CALL USBMgr::sync_transfer_cb(struct libusb_transfer *transfer)
-{
-    USBMgr * usbManager = reinterpret_cast<USBMgr *>(transfer->user_data);
-
-    // Atomic set of the status is safe in this case
-    // even though it is outside of the control_transfer_mutex lock scope
-    usbManager->control_transfer_status = CONTROL_TRANSFER_COMPLETE;
 }
 
 static void LIBUSB_CALL transfer_completed_callback(struct libusb_transfer *xfr);
@@ -1090,7 +849,7 @@ bool PS3EYECam::init(uint32_t width, uint32_t height, uint8_t desiredFrameRate)
 		frame_height = 240;
 	}
 	frame_rate = ov534_set_frame_rate(desiredFrameRate, true);
-    frame_stride = frame_width * 2;
+    frame_stride = frame_width;
 	//
 
 	/* reset bridge */
@@ -1255,24 +1014,29 @@ uint8_t PS3EYECam::ov534_set_frame_rate(uint8_t frame_rate, bool dry_run)
      };
      const struct rate_s *r;
      static const struct rate_s rate_0[] = { /* 640x480 */
-             {60, 0x01, 0xc1, 0x04},
+			 {75, 0x01, 0x81, 0x02},
+             {60, 0x00, 0x41, 0x04},
              {50, 0x01, 0x41, 0x02},
              {40, 0x02, 0xc1, 0x04},
              {30, 0x04, 0x81, 0x02},
-             {15, 0x03, 0x41, 0x04},
+			 {20, 0x04, 0x41, 0x02},
+             {15, 0x09, 0x81, 0x02},
      };
      static const struct rate_s rate_1[] = { /* 320x240 */
              {205, 0x01, 0xc1, 0x02}, /* 205 FPS: video is partly corrupt */
              {187, 0x01, 0x81, 0x02}, /* 187 FPS or below: video is valid */
-             {150, 0x01, 0xc1, 0x04},
-             {137, 0x02, 0xc1, 0x02},
-             {125, 0x02, 0x81, 0x02},
+             {150, 0x00, 0x41, 0x04},
+			 {137, 0x02, 0xc1, 0x02},
+             {125, 0x01, 0x41, 0x02},
              {100, 0x02, 0xc1, 0x04},
-             {75, 0x03, 0xc1, 0x04},
+			 {90, 0x03, 0x81, 0x02},
+             {75, 0x04, 0x81, 0x02},
              {60, 0x04, 0xc1, 0x04},
-             {50, 0x02, 0x41, 0x04},
-             {37, 0x03, 0x41, 0x04},
+             {50, 0x04, 0x41, 0x02},
+             {40, 0x06, 0x81, 0x03},
              {30, 0x04, 0x41, 0x04},
+			 {20, 0x18, 0xc1, 0x02},
+			 {15, 0x18, 0x81, 0x02},
      };
 
      if (frame_width == 640) {
@@ -1305,13 +1069,11 @@ void PS3EYECam::ov534_reg_write(uint16_t reg, uint8_t val)
 	//debug("reg=0x%04x, val=0%02x", reg, val);
 	usb_buf[0] = val;
 
-    ret = mgrPtr->usbControlTransfer(
-        handle_,
-		LIBUSB_ENDPOINT_OUT | 
-		LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE, 
-		0x01, 0x00, reg,
-		usb_buf, 1, 500);
-
+  	ret = libusb_control_transfer(handle_,
+							LIBUSB_ENDPOINT_OUT | 
+							LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE, 
+							0x01, 0x00, reg,
+							usb_buf, 1, 500);
 	if (ret < 0) {
 		debug("write failed\n");
 	}
@@ -1321,11 +1083,10 @@ uint8_t PS3EYECam::ov534_reg_read(uint16_t reg)
 {
 	int ret;
 
-    ret = mgrPtr->usbControlTransfer(
-        handle_,
-		LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|LIBUSB_RECIPIENT_DEVICE, 
-		0x01, 0x00, reg,
-		usb_buf, 1, 500);
+	ret = libusb_control_transfer(handle_,
+							LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|LIBUSB_RECIPIENT_DEVICE, 
+							0x01, 0x00, reg,
+							usb_buf, 1, 500);
 
 	//debug("reg=0x%04x, data=0x%02x", reg, usb_buf[0]);
 	if (ret < 0) {

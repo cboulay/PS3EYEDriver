@@ -1,5 +1,4 @@
 #include "ps3eye.h"
-
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -973,8 +972,12 @@ bool PS3EYECam::getUSBPortPath(char *out_identifier, size_t max_identifier_lengt
 
                 snprintf(port_string, sizeof(port_string), (port_index == 0) ? "_p%d" : ".%d", port_number);
                 port_string[sizeof(port_string) - 1] = '0';
-
-                if (strcat_s(out_identifier, max_identifier_length, port_string) != 0)
+                
+                if (strlen(out_identifier)+strlen(port_string)+1 >= max_identifier_length)
+                {
+                    std::strcat(out_identifier, port_string);
+                }
+                else
                 {
                     success = false;
                     break;

@@ -42,7 +42,7 @@ struct yuv422_buffers_t {
 
     ~yuv422_buffers_t()
     {
-        for (int i = 0; i < count; i++) {
+        for (int i=0; i<count; i++) {
             free(buffers[i].pixels);
         }
         free(buffers);
